@@ -4,10 +4,16 @@ import numpy as np
 import plotly.graph_objects as go
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# Modelle
+# Versuche, pmdarima zu importieren (wird für ARIMA genutzt)
+try:
+    import pmdarima as pm
+    pmdarima_available = True
+except Exception as e:
+    pmdarima_available = False
+
+# Weitere Modelle
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from statsmodels.tsa.arima.model import ARIMA
-import pmdarima as pm
+from statsmodels.tsa.arima.model import ARIMA  # Wird hier nicht direkt genutzt, da ARIMA via pmdarima läuft
 from prophet import Prophet
 from prophet.plot import plot_plotly
 
@@ -17,7 +23,6 @@ try:
     tbats_available = True
 except Exception as e:
     tbats_available = False
-    st.info("TBATS konnte nicht geladen werden. Es wird daher nicht verwendet.")
 
 st.title("Time Series Forecasting App")
 
@@ -26,6 +31,10 @@ Dieses Tool ermöglicht es dir, deine historischen Zeitreihendaten (CSV) hochzul
 verschiedene Forecast-Modelle parallel zu berechnen und die Ergebnisse interaktiv anzuzeigen.
 Für jedes Modell werden zudem die Metriken MAE, MSE und R² berechnet.
 """)
+
+# Info, falls pmdarima nicht geladen werden konnte
+if not pmdarima_available:
+    st.info("pmdarima konnte nicht geladen werden. Das ARIMA-Modell wird übersprungen.")
 
 # CSV Upload
 uploaded_file = st.file_uploader("Lade deine CSV-Datei hoch", type=["csv"])
@@ -43,7 +52,7 @@ if uploaded_file is not None:
     data.set_index(date_column, inplace=True)
     ts = data[value_column]
     
-    # Frequenz ermitteln
+    # Frequenz ermitteln (ggf. Standard auf 'D')
     freq = pd.infer_freq(ts.index)
     if freq is None:
         freq = 'D'
@@ -64,18 +73,21 @@ if uploaded_file is not None:
     st.header("Modellierung und Forecasts")
     
     # -------------------------
-    # ARIMA (automatisch via pmdarima)
-    try:
-        st.write("**ARIMA Modell** wird trainiert...")
-        arima_model = pm.auto_arima(train, seasonal=False, error_action='ignore', suppress_warnings=True)
-        arima_forecast = pd.Series(arima_model.predict(n_periods=forecast_period), index=test.index)
-        results['ARIMA'] = (arima_forecast, {
-            "MAE": mean_absolute_error(test, arima_forecast),
-            "MSE": mean_squared_error(test, arima_forecast),
-            "R2": r2_score(test, arima_forecast)
-        })
-    except Exception as e:
-        st.error(f"ARIMA Modell Fehler: {e}")
+    # ARIMA (automatisch via pmdarima, falls verfügbar)
+    if pmdarima_available:
+        try:
+            st.write("**ARIMA Modell** wird trainiert...")
+            arima_model = pm.auto_arima(train, seasonal=False, error_action='ignore', suppress_warnings=True)
+            arima_forecast = pd.Series(arima_model.predict(n_periods=forecast_period), index=test.index)
+            results['ARIMA'] = (arima_forecast, {
+                "MAE": mean_absolute_error(test, arima_forecast),
+                "MSE": mean_squared_error(test, arima_forecast),
+                "R2": r2_score(test, arima_forecast)
+            })
+        except Exception as e:
+            st.error(f"ARIMA Modell Fehler: {e}")
+    else:
+        st.info("Da pmdarima nicht verfügbar ist, wird das ARIMA-Modell übersprungen.")
     
     # -------------------------
     # Holt-Winters Exponentielle Glättung
