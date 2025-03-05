@@ -7,3 +7,4 @@ statsmodels
 pmdarima
 prophet
 tbats
+Cython
