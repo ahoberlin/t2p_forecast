@@ -10,6 +10,7 @@ try:
     pmdarima_available = True
 except Exception as e:
     pmdarima_available = False
+    st.info("pmdarima konnte nicht geladen werden. Das ARIMA-Modell wird übersprungen.")
 
 # Weitere Modelle
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
@@ -93,7 +94,6 @@ if uploaded_file is not None:
     # Holt-Winters Exponentielle Glättung
     try:
         st.write("**Holt-Winters (Exponentielle Glättung)** wird trainiert...")
-        # Hier wird ein additives Trendmodell ohne saisonale Komponente genutzt – passe dies bei Bedarf an.
         hw_model = ExponentialSmoothing(train, trend='add', seasonal=None).fit()
         hw_forecast = hw_model.forecast(forecast_period)
         results['Holt-Winters'] = (hw_forecast, {
@@ -111,10 +111,8 @@ if uploaded_file is not None:
         prophet_df = train.reset_index().rename(columns={train.index.name: 'ds', value_column: 'y'})
         m = Prophet()
         m.fit(prophet_df)
-        # Erstelle Future DataFrame basierend auf der ermittelten Frequenz
         future = m.make_future_dataframe(periods=forecast_period, freq=freq)
         forecast = m.predict(future)
-        # Extrahiere Vorhersagen für den Testzeitraum
         prophet_forecast = forecast.set_index('ds').loc[test.index]['yhat']
         results['Prophet'] = (prophet_forecast, {
             "MAE": mean_absolute_error(test, prophet_forecast),
@@ -146,19 +144,14 @@ if uploaded_file is not None:
     for model_name, (forecast_series, metrics) in results.items():
         st.subheader(model_name)
         fig = go.Figure()
-        # Trainingsdaten
         fig.add_trace(go.Scatter(x=train.index, y=train, mode='lines', name='Train'))
-        # Testdaten
         fig.add_trace(go.Scatter(x=test.index, y=test, mode='lines+markers', name='Test'))
-        # Forecast
         fig.add_trace(go.Scatter(x=forecast_series.index, y=forecast_series, mode='lines+markers', name='Forecast'))
         fig.update_layout(title=f"Forecast mit {model_name}", xaxis_title="Datum", yaxis_title=value_column)
         st.plotly_chart(fig, use_container_width=True)
         st.write("**Leistungskennzahlen:**")
         st.write(metrics)
     
-    # -------------------------
-    # Analyse: Welches Modell ist am besten? (Basierend auf MAE)
     if results:
         best_model = min(results.items(), key=lambda x: x[1][1]["MAE"])[0]
         st.write(f"Das beste Modell basierend auf MAE ist: **{best_model}**")
