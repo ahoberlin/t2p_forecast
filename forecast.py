@@ -11,12 +11,13 @@ import pmdarima as pm
 from prophet import Prophet
 from prophet.plot import plot_plotly
 
-# Optional: TBATS (falls installiert)
+# Optional: TBATS (falls installiert und kompatibel)
 try:
     from tbats import TBATS
     tbats_available = True
-except ImportError:
+except Exception as e:
     tbats_available = False
+    st.info("TBATS konnte nicht geladen werden. Es wird daher nicht verwendet.")
 
 st.title("Time Series Forecasting App")
 
@@ -126,8 +127,6 @@ if uploaded_file is not None:
             })
         except Exception as e:
             st.error(f"TBATS Modell Fehler: {e}")
-    else:
-        st.info("TBATS Modul ist nicht installiert. Es wird daher nicht verwendet.")
     
     # -------------------------
     # Darstellung der Forecasts und Metriken
